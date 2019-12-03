@@ -1,8 +1,8 @@
 ======================
-foglamp-south-playback
+fledge-south-playback
 ======================
 
-FogLAMP South Plugin for playback. `read more <https://github.com/foglamp/foglamp-south-playback/blob/master/python/foglamp/plugins/south/playback/readme.rst>`_
+Fledge South Plugin for playback. `read more <https://github.com/fledge/fledge-south-playback/blob/master/python/fledge/plugins/south/playback/readme.rst>`_
 
 Configuration options explained
 ===============================

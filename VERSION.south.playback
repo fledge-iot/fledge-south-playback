@@ -1,2 +1,2 @@
-foglamp_south_playback_version=1.7.0
-foglamp_version>=1.7
+fledge_south_playback_version=1.7.0
+fledge_version>=1.6
