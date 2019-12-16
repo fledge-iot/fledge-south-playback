@@ -20,8 +20,8 @@ from threading import Event
 from queue import Queue
 from threading import Thread, Condition
 
-from foglamp.common import logger
-from foglamp.plugins.common import utils
+from fledge.common import logger
+from fledge.plugins.common import utils
 import async_ingest
 
 
