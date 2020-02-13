@@ -8,7 +8,6 @@
 
 import copy
 import csv
-import uuid
 import os
 import json
 import logging
@@ -496,7 +495,6 @@ class Consumer(Thread):
                 reading = {
                     'asset': self.handle['assetName']['value'],
                     'timestamp': time_stamp,
-                    'key': str(uuid.uuid4()),
                     'readings': reading
                 }
                 async_ingest.ingest_callback(c_callback, c_ingest_ref, reading)
