@@ -42,7 +42,8 @@ _DEFAULT_CONFIG = {
         'type': 'string',
         'default': 'sample',
         'displayName': 'Asset Name',
-        'order': '1'
+        'order': '1',
+        'mandatory': 'true'
     },
     'csvFilename': {
         'description': 'CSV File name',
