@@ -40,7 +40,7 @@ To create a south service with the playback plugin
 
     - **Header Row**: Toggle to indicate the first row is a header row that contains the names that should be used for the data points within the asset.
 
-    - **Header Columns**: Only used if *Header Rows* is not enabled. This parameter should a column separated list of column names that will be used to name the data points within the asset.
+    - **Header Columns**: Only used if *Header Row* is not enabled. This parameter should a column separated list of column names that will be used to name the data points within the asset.
 
     - **Cherry pick column with same/new name**: This is a JSON document that can define a set of columns to include and optionally names to give those columns. If left empty then all columns, are included.
 
@@ -52,7 +52,7 @@ To create a south service with the playback plugin
 
     - **Timestamp format**: The format of the timestamp within the file.
 
-    - **Ingest mode**: Determine if ingest should be in batch or burst mode.
+    - **Ingest mode**: Determine if ingest should be in batch or burst mode. In burst mode data is ingested as a set of bursts of rows, defined by *Burst size*, every *Burst Interval*, this allows simulation if sensors that have internal buffering within them. Batch mode is the normal, regular rate ingest of data.
 
     - **Sample Rate**: The data sampling rate that should be used, this is defined in readings per second.
 
@@ -69,13 +69,13 @@ To create a south service with the playback plugin
 Picking Columns
 ---------------
 
-The *Cherry pick column with same/new name* entry is a JSON document with a set of key/value pairs. The key is the nae of the column in the file and the value is the name which should appear in the final asset. To illustrate this let's assume we have a CSV file as follows
+The *Cherry pick column with same/new name* entry is a JSON document with a set of key/value pairs. The key is the name of the column in the file and the value is the name which should appear in the final asset. To illustrate this let's assume we have a CSV file as follows
 
 .. code-block:: console
 
-   X, Y, Z, Amps, Volts
-   1.3, 0.1, 0.3, 2.1, 240
-   1.2, 0.3, 0.2, 2.2, 235
+   X,Y,Z,Amps,Volts
+   1.3,0.1,0.3,2.1,240
+   1.2,0.3,0.2,2.2,235
    ....
 
 We want to create an asset that has the *X* and *Y* values, *Amps* and *Volts* but we want to name them *X*, *Y*, *Current*, *Voltage*. We can do this by creating a JSON document that maps the columns.
