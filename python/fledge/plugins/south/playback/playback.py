@@ -6,10 +6,8 @@
 
 """ Module for playback async plugin """
 
-import asyncio
 import copy
 import csv
-import uuid
 import os
 import json
 import logging
@@ -23,7 +21,6 @@ from threading import Thread, Condition
 
 from fledge.common import logger
 from fledge.plugins.common import utils
-from fledge.services.south import exceptions
 import async_ingest
 
 
@@ -45,7 +42,8 @@ _DEFAULT_CONFIG = {
         'type': 'string',
         'default': 'sample',
         'displayName': 'Asset Name',
-        'order': '1'
+        'order': '1',
+        'mandatory': 'true'
     },
     'csvFilename': {
         'description': 'CSV File name',
@@ -79,15 +77,15 @@ _DEFAULT_CONFIG = {
         'description': 'Time Delta to be chosen from a column in the CSV',
         'type': 'boolean',
         'default': 'false',
-        'displayName': 'Pick timestamp from file',
-        'order': '6'
+        'displayName': 'Pick timestamp delta from file',
+        'order': '7'
     },
     'historicTimestamps': {
         'description': 'Use original timestamps rather than ingest in real time',
         'type': 'boolean',
         'default': 'false',
         'displayName': 'Historic timestamps',
-        'order': '7'
+        'order': '6'
     },
     'timestampCol': {
         'description': 'Timestamp header column, mandatory if timestampFromFile is true',
@@ -167,7 +165,7 @@ def plugin_info():
     """
     return {
         'name': 'Playback',
-        'version': '1.7.0',
+        'version': '1.8.0',
         'mode': 'async',
         'type': 'south',
         'interface': '1.0',
@@ -250,13 +248,9 @@ def plugin_reconfigure(handle, new_config):
     """
     _LOGGER.info("Old config for playback plugin {} \n new config {}".format(handle, new_config))
 
-    # plugin_shutdown
     plugin_shutdown(handle)
 
-    # plugin_init
     new_handle = plugin_init(new_config)
-
-    # plugin_start
     plugin_start(new_handle)
 
     return new_handle
@@ -302,10 +296,10 @@ def plugin_register_ingest(handle, callback, ingest_ref):
 
 
 class Producer(Thread):
-    def __init__(self, queue, condition, handle):
+    def __init__(self, queue, cond, handle):
         super(Producer, self).__init__()
         self.queue = queue
-        self.condition = condition
+        self.condition = cond
         self.handle = handle
 
         try:
@@ -320,53 +314,44 @@ class Producer(Thread):
             self.period = 1.0
 
         self.csv_file_name = "{}/{}".format(_FLEDGE_DATA, self.handle['csvFilename']['value'])
-        self.iter_sensor_data = iter(self.get_data())
+        self.has_header = True if self.handle['headerRow']['value'] == 'true' else False
+        with open(self.csv_file_name, 'r') as data_file:
+            headr = data_file.readline()
+            headr = headr.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+            self.field_names = headr.split(',') if self.has_header else \
+                None if self.handle['fieldNames']['value'] == 'None' else self.handle['fieldNames']['value'].split(",")
 
         # Cherry pick columns from readings and if desired, with
         rc = self.handle['readingCols']['value']
         self.reading_cols = rc if isinstance(rc, dict) else json.loads(rc)
+        if self.handle['historicTimestamps']['value'] == 'false' and self.handle['timestampFromFile']['value'] == 'true':
+            self.exclude_ts_column_from_reading_columns()
+
+        self.iter_sensor_data = iter(self.get_data())
 
         self.prv_readings_ts = None
         self.timestamp_interval = None
 
+    def exclude_ts_column_from_reading_columns(self):
+        ts_col = self.handle['timestampCol']['value']
+        new_reading_cols = self.reading_cols.copy()
+        if len(self.reading_cols) > 0:
+            for k, v in self.reading_cols.items():
+                if ts_col != k:
+                    new_reading_cols.update({k: v})
+        else:
+            for i in self.field_names:
+                if ts_col != i:
+                    new_reading_cols.update({i: i})
+        self.reading_cols = new_reading_cols.copy()
+
     def get_data(self):
-        has_header = True if self.handle['headerRow']['value'] == 'true' else False
-        field_names = None
-        with open(self.csv_file_name, 'r' ) as data_file:
-            headr = data_file.readline()
-            headr = headr.strip().replace('\n','').replace('\r','').replace(' ','')
-            field_names = headr.split(',') if has_header else \
-                None if self.handle['fieldNames']['value'] == 'None' else self.handle['fieldNames']['value'].split(",")
-
-        # TODO: Improve this and remove above lines
-        # has_header = None
-        # field_names = None
-        # with open(self.csv_file_name, 'r' ) as data_file:
-        #     headr = data_file.readline()
-        #     has_header = csv.Sniffer().has_header(headr)
-        #     headr = headr.strip().replace('\n','').replace('\r','').replace(' ','')
-        #     field_names = self.handle['fieldNames']['value'].split(",") if has_header is None else headr.split(',')
-
-        # Exclude timestampCol from reading_cols
-        if self.handle['historicTimestamps']['value'] == 'false':
-            if self.handle['timestampFromFile']['value'] == 'true':
-                ts_col = self.handle['timestampCol']['value']
-                new_reading_cols = self.reading_cols.copy()
-                if len(self.reading_cols) > 0:
-                    for k, v in self.reading_cols.items():
-                        if ts_col != k: new_reading_cols.update({k: v})
-                else:
-                    for i in field_names:
-                        if ts_col != i: new_reading_cols.update({i:i})
-                self.reading_cols = new_reading_cols.copy()
-
         with open(self.csv_file_name, 'r') as data_file:
-            reader = csv.DictReader(data_file, fieldnames=field_names)
+            reader = csv.DictReader(data_file, fieldnames=self.field_names)
             # Skip Header
-            if has_header:
+            if self.has_header:
                 next(reader)
-            regex = re.compile(
-                '[ `~!@#$%^&*()_=}{\]\[|;:"<>,?/\\\'ABCDFGHIJKLMNOPQRSTUVWXYZabcdfghijklmnopqrstuvwxyz]')
+            regex = re.compile('[ `~!@#$%^&*()_=}{\]\[|;:"<>,?/\\\'ABCDFGHIJKLMNOPQRSTUVWXYZabcdfghijklmnopqrstuvwxyz]')
             regex_num = re.compile('[+-0123456789]')
             regex_float = re.compile('[.eE]')
             for line in reader:
@@ -414,7 +399,6 @@ class Producer(Thread):
         eof_reached = False
         while True:
             time_start = time.time()
-            time_stamp = None
             sensor_data = {}
             try:
                 if self.handle['ingestMode']['value'] == 'burst':
@@ -465,7 +449,7 @@ class Producer(Thread):
 
             if not self.condition._is_owned():
                 self.condition.acquire()
-            if len(sensor_data) > 0 :
+            if len(sensor_data) > 0:
                 value = {'data': sensor_data, 'ts': time_stamp}
                 self.queue.put(value)
             if self.queue.full() or eof_reached:
@@ -485,10 +469,10 @@ class Producer(Thread):
 
 
 class Consumer(Thread):
-    def __init__(self, queue, condition, handle):
+    def __init__(self, queue, cond, handle):
         super(Consumer, self).__init__()
         self.queue = queue
-        self.condition = condition
+        self.condition = cond
         self.handle = handle
 
     def run(self):
@@ -512,7 +496,6 @@ class Consumer(Thread):
                 reading = {
                     'asset': self.handle['assetName']['value'],
                     'timestamp': time_stamp,
-                    'key': str(uuid.uuid4()),
                     'readings': reading
                 }
                 async_ingest.ingest_callback(c_callback, c_ingest_ref, reading)
