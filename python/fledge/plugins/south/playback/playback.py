@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # FLEDGE_BEGIN
-# See: http://fledge.readthedocs.io/
+# See: http://fledge-iot.readthedocs.io/
 # FLEDGE_END
 
 """ Module for playback async plugin """
@@ -165,7 +165,7 @@ def plugin_info():
     """
     return {
         'name': 'Playback',
-        'version': '1.9.0',
+        'version': '1.9.1',
         'mode': 'async',
         'type': 'south',
         'interface': '1.0',
