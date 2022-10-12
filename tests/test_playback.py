@@ -4,7 +4,6 @@
 # See: http://fledge-iot.readthedocs.io/
 # FLEDGE_END
 
-from unittest.mock import patch
 import pytest
 
 from python.fledge.plugins.south.playback import playback
