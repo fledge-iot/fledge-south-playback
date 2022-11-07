@@ -165,7 +165,7 @@ def plugin_info():
     """
     return {
         'name': 'Playback',
-        'version': '2.0.0',
+        'version': '2.0.1',
         'mode': 'async',
         'type': 'south',
         'interface': '1.0',
